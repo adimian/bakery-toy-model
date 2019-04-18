@@ -2,6 +2,16 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+Serie = db.Table(
+    "serie",
+    db.metadata,
+    db.Column("reference", db.String, primary_key=True),
+    db.Column("reference_id", db.Integer, primary_key=True),
+    db.Column("serie", db.String, primary_key=True),
+    db.Column("date", db.DateTime, primary_key=True),
+    db.Column("value", db.Float, nullable=False),
+)
+
 
 class Country(db.Model):
     id = db.Column(db.Integer, primary_key=True)

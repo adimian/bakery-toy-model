@@ -1,6 +1,6 @@
 from flask import Flask
 from .models import db
-from .endpoints import api
+from .endpoints import api, cache
 from .admin import admin
 from flask_admin.contrib.sqla import ModelView
 
@@ -14,6 +14,7 @@ def app_maker():
     db.init_app(app)
     api.init_app(app)
     admin.init_app(app)
+    cache.init_app(app)
 
     from .models import Country, Region, City, Bakery, Cashier, Item
 

@@ -5,10 +5,12 @@ from functools import wraps
 from random import choice, choices, randint
 from flask import abort
 from flask_restplus import Api, Resource, fields
-
+from flask_caching import Cache
 from .models import db, Item, Cashier
 
 api = Api()
+cache = Cache(config={"CACHE_TYPE": "redis"})
+
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +125,7 @@ order_bill_model = api.model(
 @api.route("/orders")
 class Orders(Resource):
     @troll_mode
+    @cache.cached(timeout=60)
     @api.marshal_with(order_bill_model)
     def get(self):
         session = db.session

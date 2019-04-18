@@ -1,10 +1,48 @@
-from flask_restplus import Api, Resource, fields
-from .models import db, Item, Cashier
-from random import choice, choices, randint
+import os
 import datetime
+import logging
+from functools import wraps
+from random import choice, choices, randint
+from flask import abort
+from flask_restplus import Api, Resource, fields
 
+from .models import db, Item, Cashier
 
 api = Api()
+
+logger = logging.getLogger(__name__)
+
+
+def troll_mode(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+
+        if os.getenv("TROLL"):
+            case = randint(1, 10)
+
+            def hang(*args, **kwargs):
+                import time
+
+                logger.info("troll: hang mode")
+                time.sleep(5)
+                return f(*args, **kwargs)
+
+            def kill(*args, **kwargs):
+                logger.info("troll: server error mode")
+                abort(choice([502, 504, 500, 501]))
+
+            def noop(*args, **kwargs):
+                logger.info("troll: noop mode")
+                return {}
+
+            response = {1: hang, 2: kill, 3: noop}
+
+            method = response.get(case, f)
+        else:
+            method = f
+        return method(*args, **kwargs)
+
+    return decorated
 
 
 item_model = api.model(
@@ -58,6 +96,7 @@ def generate_sale(session):
 
 @api.route("/cashregister")
 class CashRegister(Resource):
+    @troll_mode
     @api.marshal_with(sale_model)
     def get(self):
         session = db.session
@@ -83,6 +122,7 @@ order_bill_model = api.model(
 
 @api.route("/orders")
 class Orders(Resource):
+    @troll_mode
     @api.marshal_with(order_bill_model)
     def get(self):
         session = db.session

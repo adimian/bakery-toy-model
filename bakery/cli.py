@@ -63,9 +63,10 @@ class GunicornServer(Command):
 
 manager.add_command("serve", GunicornServer())
 
-# @manager.command
-# def hello():
-#     print "hello"
+
+def main():
+    manager.run()
+
 
 if __name__ == "__main__":
-    manager.run()
+    main()

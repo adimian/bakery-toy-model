@@ -6,7 +6,7 @@ from random import choice, choices, randint
 
 import sqlalchemy
 from flask import abort
-from flask_restplus import Api, Resource, fields, reqparse, inputs
+from flask_restplus import Api, Namespace, Resource, fields, reqparse, inputs
 from flask_caching import Cache
 from .models import db, Item, Cashier, Country, Region, Bakery, City, Serie
 
@@ -98,7 +98,11 @@ def generate_sale(session):
     }
 
 
-@api.route("/cashregister")
+sales = Namespace("sales", description="real-time sales feed")
+api.add_namespace(sales)
+
+
+@sales.route("/cashregister")
 class CashRegister(Resource):
     @troll_mode
     @api.marshal_with(sale_model)
@@ -123,8 +127,11 @@ order_bill_model = api.model(
     },
 )
 
+orders = Namespace("orders", description="snapshot view on orders")
+api.add_namespace(orders)
 
-@api.route("/orders")
+
+@orders.route("/orders")
 class Orders(Resource):
     @troll_mode
     @cache.cached(timeout=60)
@@ -167,10 +174,13 @@ serie_parser.add_argument("id", type=int)
 serie_parser.add_argument("type", type=str)
 
 
+timeseries = Namespace("timeseries", description="timeseries read/write")
+api.add_namespace(timeseries)
+
 for klass in (Cashier, Country, Region, Bakery, City):
     tablename = klass.__tablename__
 
-    @api.route("/{}/timeseries".format(tablename))
+    @timeseries.route("/{}/timeseries".format(tablename))
     class TimeSeries(Resource):
         @troll_mode
         @api.expect(point_parser)
@@ -216,3 +226,7 @@ for klass in (Cashier, Country, Region, Bakery, City):
             result = db.engine.connect().execute(sel)
 
             return {"data": [{"date": d, "value": v} for d, v in result]}
+
+
+factory = Namespace("factory", description="interface with the factory")
+api.add_namespace(factory)

@@ -8,7 +8,17 @@ import sqlalchemy
 from flask import abort
 from flask_restplus import Api, Namespace, Resource, fields, reqparse, inputs
 from flask_caching import Cache
-from .models import db, Item, Cashier, Country, Region, Bakery, City, Serie
+from .models import (
+    db,
+    Item,
+    Cashier,
+    Country,
+    Region,
+    Bakery,
+    City,
+    Serie,
+    FactoryOrder,
+)
 
 api = Api()
 cache = Cache(config={"CACHE_TYPE": "redis"})
@@ -230,3 +240,91 @@ for klass in (Cashier, Country, Region, Bakery, City):
 
 factory = Namespace("factory", description="interface with the factory")
 api.add_namespace(factory)
+
+
+order_parser = reqparse.RequestParser()
+order_parser.add_argument("bakery", type=str)
+order_parser.add_argument("product", type=str)
+order_parser.add_argument("quantity", type=int)
+order_parser.add_argument("date", type=inputs.date_from_iso8601)
+
+receipt_parser = reqparse.RequestParser()
+receipt_parser.add_argument("date", type=inputs.date_from_iso8601)
+
+next_day_item_model = api.model(
+    "NextDayItem", {"item": fields.String, "qty": fields.Integer}
+)
+
+
+next_day_order_model = api.model(
+    "NextDayOrder",
+    {
+        "locationName": fields.String,
+        "orderBasket": fields.List(fields.Nested(next_day_item_model)),
+    },
+)
+
+next_day_order_statement = api.model(
+    "NextDayOrderStatement",
+    {
+        "date": fields.DateTime(dt_format="iso8601"),
+        "orders": fields.List(fields.Nested(next_day_order_model)),
+    },
+)
+
+
+@factory.route("/next-day-order".format(tablename))
+class NextDayOrder(Resource):
+    @troll_mode
+    @api.expect(receipt_parser)
+    @api.marshal_with(next_day_order_statement)
+    def get(self):
+        args = receipt_parser.parse_args()
+        session = db.session
+
+        booked = session.query(FactoryOrder).filter_by(date=args["date"])
+
+        order_per_bakery = {}
+        for order in booked.all():
+            order_per_bakery.setdefault(order.bakery_name, []).append(
+                {"item": order.item_name, "qty": order.quantity}
+            )
+
+        return {
+            "date": args["date"],
+            "orders": [
+                {"locationName": k, "orderBasket": v}
+                for k, v in order_per_bakery.items()
+            ],
+        }
+
+    @troll_mode
+    @api.expect(order_parser)
+    def post(self):
+        args = order_parser.parse_args()
+
+        session = db.session
+        today = datetime.date.today()
+
+        if args["date"] < today:
+            abort(400, "cannot set orders in the past")
+
+        new_order = FactoryOrder(
+            bakery_name=args["bakery"],
+            item_name=args["product"],
+            quantity=args["quantity"],
+            date=args["date"],
+        )
+
+        try:
+            session.add(new_order)
+            session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            logger.info(
+                (
+                    "refused order {} because another "
+                    "order for that day already exists"
+                ).format(new_order)
+            )
+
+        return {"message": "ok"}

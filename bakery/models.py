@@ -86,3 +86,29 @@ class Item(db.Model):
 
     def __str__(self):
         return self.name
+
+
+class FactoryOrder(db.Model):
+    bakery_name = db.Column(
+        db.String(),
+        db.ForeignKey("bakery.name"),
+        nullable=False,
+        primary_key=True,
+    )
+    item_name = db.Column(
+        db.String(),
+        db.ForeignKey("item.name"),
+        nullable=False,
+        primary_key=True,
+    )
+    date = db.Column(db.Date, nullable=False, primary_key=True)
+    quantity = db.Column(db.Integer, nullable=False)
+
+    def __str__(self):
+        return "<{} bakery:{}, item: {}, qty:{}, date:{}>".format(
+            self.__class__.__name__,
+            self.bakery_name,
+            self.item_name,
+            self.quantity,
+            self.date,
+        )

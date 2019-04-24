@@ -328,3 +328,31 @@ class NextDayOrder(Resource):
             )
 
         return {"message": "ok"}
+
+
+references = Namespace("references", description="details about references")
+api.add_namespace(references)
+
+resource_parser = reqparse.RequestParser()
+resource_parser.add_argument("name", type=str)
+
+for klass in (Cashier, Country, Region, Bakery, City):
+    tablename = klass.__tablename__
+
+    @references.route("/{}/resource".format(tablename))
+    class References(Resource):
+        @troll_mode
+        @api.expect(resource_parser)
+        def post(self, tablename=tablename, klass=klass):
+            args = resource_parser.parse_args()
+
+            session = db.session
+
+            ref = (
+                session.query(klass).filter_by(name=args["name"]).one_or_none()
+            )
+
+            if ref is None:
+                abort(400, "unknown {}".format(tablename))
+
+            return {"id": ref.id}

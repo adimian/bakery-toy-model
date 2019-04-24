@@ -173,14 +173,12 @@ serie_model = api.model(
 )
 
 point_parser = reqparse.RequestParser()
-point_parser.add_argument("id", type=int)
 point_parser.add_argument("type", type=str)
 point_parser.add_argument("value", type=float)
 point_parser.add_argument("date", type=inputs.datetime_from_iso8601)
 
 
 serie_parser = reqparse.RequestParser()
-serie_parser.add_argument("id", type=int)
 serie_parser.add_argument("type", type=str)
 
 
@@ -190,16 +188,16 @@ api.add_namespace(timeseries)
 for klass in (Cashier, Country, Region, Bakery, City):
     tablename = klass.__tablename__
 
-    @timeseries.route("/{}/timeseries".format(tablename))
+    @timeseries.route("/{}/<int:id>/timeseries".format(tablename))
     class TimeSeries(Resource):
         @troll_mode
         @api.expect(point_parser)
-        def post(self, target=tablename):
+        def post(self, id, target=tablename):
             args = point_parser.parse_args()
 
             ins = Serie.insert().values(
                 reference=target,
-                reference_id=args["id"],
+                reference_id=id,
                 serie=args["type"],
                 date=args["date"],
                 value=args["value"],
@@ -208,7 +206,7 @@ for klass in (Cashier, Country, Region, Bakery, City):
             upd = (
                 Serie.update()
                 .where(Serie.c.reference == target)
-                .where(Serie.c.reference_id == args["id"])
+                .where(Serie.c.reference_id == id)
                 .where(Serie.c.serie == args["type"])
                 .where(Serie.c.date == args["date"])
                 .values(value=args["value"])
@@ -224,12 +222,12 @@ for klass in (Cashier, Country, Region, Bakery, City):
         @troll_mode
         @api.expect(serie_parser)
         @api.marshal_with(serie_model)
-        def get(self, target=tablename):
+        def get(self, id, target=tablename):
             args = serie_parser.parse_args()
             sel = (
                 sqlalchemy.sql.select([Serie.c.date, Serie.c.value])
                 .where(Serie.c.reference == target)
-                .where(Serie.c.reference_id == args["id"])
+                .where(Serie.c.reference_id == id)
                 .where(Serie.c.serie == args["type"])
             )
 

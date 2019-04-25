@@ -217,7 +217,7 @@ for klass in (Cashier, Country, Region, Bakery, City):
             except sqlalchemy.exc.IntegrityError:
                 db.engine.connect().execute(upd)
 
-            return {"target": target, "id": args["id"], "message": "success"}
+            return {"target": target, "id": id, "message": "success"}
 
         @troll_mode
         @api.expect(serie_parser)
